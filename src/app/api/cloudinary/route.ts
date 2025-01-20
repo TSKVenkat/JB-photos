@@ -2,6 +2,12 @@
 import { NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 
+interface CloudinaryResource {
+  secure_url: string;
+  public_id: string;
+  created_at: string;
+}
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
   api_key: process.env.CLOUDINARY_API_KEY!,
@@ -16,9 +22,9 @@ export async function GET() {
       max_results: 100,
       sort_by: 'created_at',
       direction: 'desc'
-    });
+    }) as { resources: CloudinaryResource[] };
 
-    const images = resources.map((resource: any) => ({
+    const images = resources.map((resource) => ({
       url: resource.secure_url,
       publicId: resource.public_id
     }));
