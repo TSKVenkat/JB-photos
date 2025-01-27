@@ -5,36 +5,50 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
-type Image = {
+interface Image {
   url: string;
   publicId: string;
-};
+}
+
+interface ApiResponse {
+  success: boolean;
+  images?: Image[];
+  error?: string;
+}
 
 export default function GalleryPage() {
   const [images, setImages] = useState<Image[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        const response = await fetch('/api/cloudinary');
+        const data: ApiResponse = await response.json();
+        
+        if (!data.success || !data.images) {
+          throw new Error(data.error || 'Failed to fetch images');
+        }
+
+        setImages(data.images);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error('Error fetching images:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchImages();
   }, []);
 
-  const fetchImages = async () => {
-    try {
-      const response = await fetch('/api/cloudinary');
-      if (!response.ok) throw new Error('Failed to fetch images');
-      const data = await response.json();
-      setImages(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load images');
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (error) return <div>Error: {error}</div>;
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <Image src="/vishal.jpg" width={150} height={150} alt='vishal loading'></Image>
         <div className="text-gray-600">Loading...</div>
       </div>
     );
