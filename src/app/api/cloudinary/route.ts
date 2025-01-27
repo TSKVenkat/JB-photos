@@ -1,7 +1,7 @@
-// app/api/cloudinary/route.ts
 import { NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 
+// Types for strong typing
 interface CloudinaryResource {
   secure_url: string;
   public_id: string;
@@ -12,21 +12,41 @@ interface CloudinaryResponse {
   resources: CloudinaryResource[];
 }
 
-if (!process.env.CLOUDINARY_CLOUD_NAME || 
-    !process.env.CLOUDINARY_API_KEY || 
-    !process.env.CLOUDINARY_API_SECRET) {
-  throw new Error('Missing required Cloudinary environment variables');
-}
+// Initialize cloudinary configuration
+const configureCloudinary = () => {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+  if (!cloudName || !apiKey || !apiSecret) {
+    console.error('Missing Cloudinary environment variables');
+    return false;
+  }
+
+  cloudinary.config({
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
+  });
+
+  return true;
+};
 
 export async function GET() {
+  // Configure Cloudinary and check if successful
+  if (!configureCloudinary()) {
+    return NextResponse.json(
+      { 
+        success: false,
+        error: 'Cloudinary configuration missing or invalid'
+      },
+      { status: 500 }
+    );
+  }
+
   try {
-    const response = await cloudinary.api.resources({
+    // Fetch resources from Cloudinary
+    const { resources } = await cloudinary.api.resources({
       type: 'upload',
       prefix: 'Home/JB pics',
       max_results: 100,
@@ -34,16 +54,29 @@ export async function GET() {
       direction: 'desc'
     }) as CloudinaryResponse;
 
-    return NextResponse.json({
-      success: true,
-      images: response.resources.map((resource) => ({
-        url: resource.secure_url,
-        publicId: resource.public_id
-      }))
-    });
+    // Transform and return the data
+    const images = resources.map((resource) => ({
+      url: resource.secure_url,
+      publicId: resource.public_id
+    }));
+
+    // Return success response with cache headers
+    return NextResponse.json(
+      { 
+        success: true,
+        images 
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=59',
+        },
+      }
+    );
 
   } catch (error) {
     console.error('Error fetching images:', error);
+    
+    // Return appropriate error response
     return NextResponse.json(
       { 
         success: false,
