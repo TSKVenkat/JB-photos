@@ -19,12 +19,16 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // Initialize Cloudinary configuration
 const configureCloudinary = () => {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const apiKey = process.env.CLOUDINARY_API_KEY;
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
   if (!cloudName || !apiKey || !apiSecret) {
-    console.error('Missing Cloudinary environment variables');
+    console.error('Missing Cloudinary environment variables:', {
+      cloudName: !!cloudName,
+      apiKey: !!apiKey,
+      apiSecret: !!apiSecret
+    });
     return false;
   }
 
@@ -43,7 +47,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: 'Cloudinary configuration missing or invalid'
+        error: 'Cloudinary configuration missing or invalid. Please check environment variables.'
       },
       { status: 500 }
     );
@@ -66,7 +70,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid file type. Only JPG, PNG, and GIF files are allowed'
+          error: `Invalid file type: ${file.type}. Only JPG, PNG, and GIF files are allowed`
         },
         { status: 400 }
       );
@@ -77,7 +81,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: `File size exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`
+          error: `File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`
         },
         { status: 400 }
       );
@@ -102,8 +106,12 @@ export async function POST(req: Request) {
           ]
         },
         (error, result) => {
-          if (error) reject(error);
-          else resolve(result as CloudinaryUploadResult);
+          if (error) {
+            console.error('Cloudinary upload error:', error);
+            reject(error);
+          } else {
+            resolve(result as CloudinaryUploadResult);
+          }
         }
       );
     });
@@ -117,7 +125,8 @@ export async function POST(req: Request) {
         format: uploadResponse.format,
         size: uploadResponse.bytes,
         width: uploadResponse.width,
-        height: uploadResponse.height
+        height: uploadResponse.height,
+        createdAt: uploadResponse.created_at
       }
     });
 
@@ -134,7 +143,6 @@ export async function POST(req: Request) {
   }
 }
 
-// Configure API route options
 export const config = {
   api: {
     bodyParser: false,
